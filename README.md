@@ -1,11 +1,11 @@
-# Automate Affiliate Link Conversion with CANDY
+# Automate Affiliate Link Conversion for CANDY
 
-This is a simple script to batch process CANDY files and automate the workflow that converts affiliate links. Using Selenium driver, it will generate a json file with contents like:
+This is a simple script to batch process CANDY files (Licorice, Taffy, Mint, etc.) and automate the workflow that converts canonical product URLs to affiliate links. Using Selenium driver, it will generate a json file with contents like:
 ```
-{boid: 'https://***$$$'}
+{"brm1spnz43acb4f16648": "https://amzn.to/44HXXXX"}
 ```
 
-ℹ️ This script is intended for use by marketers and influencers. Improper use may lead to unintended consequences and is not supported. Please comply with regulations and refrain from using this facilitative tool to abuse or game any system.
+ℹ️ This script is made for professional use by marketers and influencers. Improper use may lead to unintended consequences and is not supported. Please comply with regulations and refrain from using this facilitative tool to abuse or game any system.
 
 ### Supported platforms
 - Amazon
