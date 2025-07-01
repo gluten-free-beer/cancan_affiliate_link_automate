@@ -1,6 +1,6 @@
 # Automate Affiliate Link Conversion with CANDY
 
-This is a simple script to batch process CANDY files and automate the workflow that converts affiliate links. Using Selenium driver, it will generate a json file with content like:
+This is a simple script to batch process CANDY files and automate the workflow that converts affiliate links. Using Selenium driver, it will generate a json file with contents like:
 ```
 {boid: 'https://***$$$'}
 ```
