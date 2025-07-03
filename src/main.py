@@ -1,4 +1,10 @@
 import os
+from dotenv import load_dotenv
+
+load_dotenv()  # take environment variables
+
+input_dir = os.getenv("INPUT_DIR")
+output_dir = os.getenv("OUTPUT_DIR")
 
 def batchOp(merchant, filename, headless=True):
     from utils import (
@@ -21,19 +27,19 @@ def batchOp(merchant, filename, headless=True):
         data = []
         if ext == "csv":
             data = readCsvFile(
-                os.path.join(os.getcwd(), "resources", merchant, filename)
+                os.path.join(os.getcwd(), input_dir, merchant, filename)
             )
         else:
             obj = loadLocalJsonFile(
-                os.path.join(os.getcwd(), "resources", merchant, filename)
+                os.path.join(os.getcwd(), input_dir, merchant, filename)
             )
             if obj is not None:
                 data = obj["data"]
         data = [x for x in data if x["provider"] == merchant]
         result = {}
-        if os.path.exists(os.path.join("output", merchant, f"{flabel}.json")):
+        if os.path.exists(os.path.join(output_dir, merchant, f"{flabel}.json")):
             result = loadLocalJsonFile(
-                os.path.join("output", merchant, f"{flabel}.json")
+                os.path.join(output_dir, merchant, f"{flabel}.json")
             )
         for bobj in data:
             boid = bobj["BOID"]
@@ -49,7 +55,7 @@ def batchOp(merchant, filename, headless=True):
         if len(result):
             writeLocalJsonFile(
                 result,
-                os.path.join("output", merchant, f"{flabel}.json"),
+                os.path.join(output_dir, merchant, f"{flabel}.json"),
                 verbose=True,
             )
 
@@ -74,9 +80,9 @@ if __name__ == "__main__":
     target = input("Which platform are we processing today? [1] - Amazon \n")
     if target == "1":
         merch = "amazon"
-        print(f"Make sure you have placed the CANDY file in /resources/{merch}/.")
+        print(f"Make sure you have placed the CANDY file in /{input_dir}/{merch}/.")
         fileopt = input("Which file are we using? Default: candy.json \n") or "candy.json"
-        filepath = os.path.join(os.getcwd(), "resources", merch, fileopt)
+        filepath = os.path.join(os.getcwd(), input_dir, merch, fileopt)
         if os.path.exists(filepath):
             filename = fileopt
         else:
@@ -85,7 +91,7 @@ if __name__ == "__main__":
     if merch is not None and filename is not None:
         try:
             if args.reset:
-                removeDirectory(os.path.join("output", merch))
+                removeDirectory(os.path.join(output_dir, merch))
             batchOp(merchant="amazon", filename=filename, headless=args.headless)
         except Exception as e:
             print(e)
