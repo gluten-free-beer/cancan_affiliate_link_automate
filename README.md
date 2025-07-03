@@ -13,5 +13,6 @@ This is a simple script to batch process CANDY files (Licorice, Taffy, Mint, etc
 
 ### Workflow
 - Put CANDY files in the "resources" folder. Both .json and .csv files are accepted.
-- Call main.py and follow the prompts in the terminal. For the first time, you will need to log in. By default, Chrome browser is used.
-- The generated links will be saved to ./output. Note that the output files will have the same filenames as the resource files, which makes them incremental. Delete the output files or supply --reset=1 for a fresh start. 
+- Call main.py and follow the prompts in the terminal. For the first time or for some specific platforms, you will need to log in. By default, Chrome browser is used.
+- The generated links will be saved to ./output. Note that the output files will have the same filenames as the resource files, which makes them incremental. Delete the output files or supply --reset=1 for a fresh start.
+- Use the .env file for configuration.

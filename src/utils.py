@@ -1,6 +1,8 @@
 from selenium.webdriver.chrome.webdriver import WebDriver
 import os
 
+src_dir = os.path.join(os.getcwd(), "src")
+browser = os.getenv("BROWSER_TYPE")
 
 def getTimestamp():
     from time import time
@@ -19,14 +21,13 @@ def rmtree(directory):
         except Exception as e:
             print(e)
     os.rmdir(directory)
-    
+
 
 def removeDirectory(dir_path):
     if os.path.isdir(dir_path):
         rmtree(dir_path)
-        
-        
-        
+
+
 def naturalSleep(seconds=1, mintime=1):
     from time import sleep
     from random import randint
@@ -37,26 +38,23 @@ def naturalSleep(seconds=1, mintime=1):
     sleep(sleeptime)
 
 
-def initSelenDriver(
-    headless=True, windowSize=(1820, 960), type="chrome"
-):
+def initSelenDriver(headless=True, windowSize=(1820, 960), type=browser):
     from selenium import webdriver
+    import undetected_chromedriver as uc
     import traceback
 
     driver = None
     options = None
 
-    
     if type == "chrome":
-        user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
-        
-        from selenium.webdriver.chrome.options import Options as ChromeOptions
-        from selenium.webdriver.chrome.service import Service
-        from webdriver_manager.chrome import ChromeDriverManager
+        options = uc.ChromeOptions()
+        if headless:
+            options.add_argument("--headless=new")
+        driver = uc.Chrome(options=options)
 
-        options = ChromeOptions()
-        options.add_argument(f"user-agent={user_agent}")
-    elif type == "firefox":
+        return driver
+        
+    if type == "firefox":
         user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:126.0) Gecko/20100101 Firefox/126.0"
         from webdriver_manager.firefox import GeckoDriverManager
         from selenium.webdriver.firefox.options import Options as FirefoxOptions
@@ -69,18 +67,16 @@ def initSelenDriver(
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--hide-scrollbars")
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option("useAutomationExtension", False)
 
     try:
-        if type == "chrome":
-            driver = webdriver.Chrome(
-                service=Service(ChromeDriverManager().install()), options=options
-            )
-
-        elif type == "firefox":
+        if type == "firefox":
             driver = webdriver.Firefox(
                 service=Service(GeckoDriverManager().install()), options=options
             )
-        
+
         driver.set_window_size(windowSize[0], windowSize[1])
 
     except Exception as e:
@@ -128,18 +124,27 @@ def loadCookieSelenium(driver, dpath, filename="default.cookies"):
     return None
 
 
+def scrollByAmount(driver, amount=1, direction="Y"):
+    from selenium.webdriver import ActionChains
+
+    wsize = driver.get_window_size()
+    wheight = wsize["height"]
+    ActionChains(driver).scroll_by_amount(0, int(wheight * amount)).perform()
+
+
 def checkRedoLogin(domain):
     import json
 
     ts = getTimestamp()
     redo = True
     cookie_path = os.path.join(
-        os.getcwd(), "misc", f"cookies/chrome/{domain}", "default.cookies"
+        src_dir, "misc", f"cookies/chrome/{domain}", "default.cookies"
     )
-    keys = {"default": "session-id", "amazon": "session-id"}
+    keys = {"default": "at-main", "amazon": "session-id", "aliexpress": "uid"}
     key = keys["default"]
     if domain in keys:
         key = keys[domain]
+
     if os.path.exists(cookie_path):
         try:
             with open(cookie_path, "r") as cookiesfile:
@@ -154,25 +159,29 @@ def checkRedoLogin(domain):
                                 break
         except Exception as e:
             print(f"cannot load cookies: {e} --- {cookie_path}")
+    print("redo cookies?", redo)
     return redo
 
 
-def prepDriver(driver, domain) -> WebDriver:
+def prepDriver(driver, domain, browser=browser, forceLogin=False) -> WebDriver:
     from time import sleep
     from selenium.common.exceptions import WebDriverException
     import os
     from params import DOMAIN_PAGE
-    
+
     ndriver = None
     try:
         init_page = DOMAIN_PAGE[domain]["init"]
         driver.get(init_page)
-        cookiePath = os.path.join("misc", f"cookies/chrome/{domain}")
+        sleep(3)
+
+        cookiePath = os.path.join(src_dir, "misc", f"cookies/{browser}/{domain}")
         redo = True
-        
-        if os.path.exists(cookiePath):
+
+        if not forceLogin and os.path.exists(cookiePath):
             ndriver = loadCookieSelenium(driver=driver, dpath=cookiePath)
             sleep(3)
+            scrollByAmount(driver, 0.6)
             if ndriver is not None:
                 redo = False
                 ndriver.get(init_page)
@@ -182,15 +191,15 @@ def prepDriver(driver, domain) -> WebDriver:
             login_page = DOMAIN_PAGE[domain]["login"]
             driver.get(login_page)
             tries = 0
-            while tries< 5:
-                sleep(15)
+            while tries < 5:
+                sleep(20)
                 ndriver = saveCookieSelenium(driver=driver, dpath=cookiePath)
-                if not checkRedoLogin(domain=domain):                    
+                if not checkRedoLogin(domain=domain):
                     ndriver.get(init_page)
                     sleep(5)
-                    break 
-                tries +=1                         
-        
+                    break
+                tries += 1
+
     except WebDriverException as e:
         print(e)
 
@@ -317,15 +326,22 @@ def writeLocalJsonFile(content, filepath, verbose=False):
             print("file written to:", filepath)
 
 
-def getAmazonSs(driver):
+def getTrackingLinks(driver, merchant):
     from params import DOMAIN_PAGE
 
-    b = findElSelenium(driver, DOMAIN_PAGE["amazon"]["get_link_btn"])
-    if b is not None:
-        selenClickSimple(driver=driver, clickable=b)
-        naturalSleep(3)
-        textarea = findElSelenium(driver, DOMAIN_PAGE["amazon"]["get_link"], wait=True)
-        if textarea is not None:
-            text_value = textarea.get_attribute("value")
-            return text_value
+    if merchant in DOMAIN_PAGE:
+        attr = DOMAIN_PAGE[merchant]["method"]
+        naturalSleep(4)
+        b = findElSelenium(
+            driver, DOMAIN_PAGE[merchant]["get_link_btn"], attribute=attr, wait=True
+        )
+        if b is not None:
+            selenClickSimple(driver=driver, clickable=b)
+
+            textarea = findElSelenium(
+                driver, DOMAIN_PAGE[merchant]["get_link"], wait=True, attribute=attr
+            )
+            if textarea is not None:
+                text_value = textarea.get_attribute("value")
+                return text_value
     return None
