@@ -9,7 +9,8 @@ This is a simple script to batch process CANDY files (Licorice, Taffy, Mint, etc
 
 ### Supported platforms
 - Amazon
-- Aliexpress (coming soon)
+- Aliexpress
+- Gumroad
 
 ### Workflow
 - Put CANDY files in the "resources" folder. Both .json and .csv files are accepted.
