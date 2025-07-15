@@ -51,7 +51,7 @@ def initSelenDriver(headless=True, windowSize=(1820, 960), type=browser):
         if headless:
             options.add_argument("--headless=new")
         driver = uc.Chrome(options=options)
-
+    
         return driver
         
     if type == "firefox":
@@ -134,13 +134,14 @@ def scrollByAmount(driver, amount=1, direction="Y"):
 
 def checkRedoLogin(domain):
     import json
+    from params import COOKIE_KEYS
 
     ts = getTimestamp()
     redo = True
     cookie_path = os.path.join(
         src_dir, "misc", f"cookies/chrome/{domain}", "default.cookies"
     )
-    keys = {"default": "at-main", "amazon": "session-id", "aliexpress": "uid"}
+    keys = COOKIE_KEYS.copy()
     key = keys["default"]
     if domain in keys:
         key = keys[domain]
@@ -163,7 +164,7 @@ def checkRedoLogin(domain):
     return redo
 
 
-def prepDriver(driver, domain, browser=browser, forceLogin=False) -> WebDriver:
+def prepDriver(driver, domain, browser=browser, forceLogin=False, headless=True) -> WebDriver:
     from time import sleep
     from selenium.common.exceptions import WebDriverException
     import os
@@ -171,6 +172,8 @@ def prepDriver(driver, domain, browser=browser, forceLogin=False) -> WebDriver:
 
     ndriver = None
     try:
+        if driver is None:
+            initSelenDriver(headless=headless, type=browser)
         init_page = DOMAIN_PAGE[domain]["init"]
         driver.get(init_page)
         sleep(3)
@@ -192,7 +195,7 @@ def prepDriver(driver, domain, browser=browser, forceLogin=False) -> WebDriver:
             driver.get(login_page)
             tries = 0
             while tries < 5:
-                sleep(20)
+                sleep(15)
                 ndriver = saveCookieSelenium(driver=driver, dpath=cookiePath)
                 if not checkRedoLogin(domain=domain):
                     ndriver.get(init_page)

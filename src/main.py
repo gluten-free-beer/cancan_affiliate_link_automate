@@ -1,6 +1,6 @@
 import os
 from traceback import format_exc
-
+import re
 from dotenv import load_dotenv
 
 load_dotenv()  # take environment variables
@@ -21,7 +21,10 @@ def batchOp(merchant, filename, headless=True, forceLogin=False):
         writeLocalJsonFile,
         getTrackingLinks,
         naturalSleep,
+        findElSelenium,
+        closeSelenDriver,
     )
+    from params import DOMAIN_PAGE
 
     flabel, ext = filename.split(".")
 
@@ -37,35 +40,77 @@ def batchOp(merchant, filename, headless=True, forceLogin=False):
         result = loadLocalJsonFile(
             os.path.join(src_dir, output_dir, merchant, f"{flabel}.json")
         )
+
     data = [x for x in data if x["provider"] == merchant and x["BOID"] not in result]
     if len(data):
+        driver = None
+        dobj = DOMAIN_PAGE[merchant]
+        userid = None
         login = False
         if not forceLogin:
             login = checkRedoLogin(merchant)
         if headless and login:
             headless = False
+        if dobj["type"] == "hub":
+            if merchant == "gumroad":
+                tempid = os.getenv("GUMROAD_ID")
+                if len(tempid):
+                    userid = tempid
+            if userid is None:
+                driver = initSelenDriver(headless=headless)
+                if driver is None:
+                    raise Exception("driver is bad")
 
-        driver = initSelenDriver(headless=headless)
-        driver = prepDriver(driver, domain=merchant, forceLogin=forceLogin)
-        if driver is not None:
+                driver = prepDriver(
+                    driver, domain=merchant, forceLogin=forceLogin, headless=headless
+                )
+                managepage = dobj["init"]
+                driver.get(managepage)
+                naturalSleep(5)
+                pel = findElSelenium(driver, dobj["id_extraction"], "xpath")
+                if pel is not None:
+                    ptext = pel.text
+                    q = dobj["querykey"]
+                    u = re.search(rf"\?{q}=(\d+)", ptext)
+                    if u is not None:
+                        userid = u.group(1)
+                        print(
+                            "your Gumroad user id is {} ==> you may add it to the env file.".format(
+                                userid
+                            )
+                        )
+            if userid is None:
+                raise Exception("cannot get {} user id".format(merchant))
+        else:
+            driver = initSelenDriver(headless=headless)
 
-            for bobj in data:
-                boid = bobj["BOID"]
-                url = bobj["url"]
+            if driver is None:
+                raise Exception("driver is bad")
+            driver = prepDriver(
+                driver, domain=merchant, forceLogin=forceLogin, headless=headless
+            )
+        for bobj in data:
+            boid = bobj["BOID"]
+            url = bobj["url"]
+            link = None
+            if dobj["type"] == "single":
                 driver.get(url)
                 naturalSleep(5)
-
                 link = getTrackingLinks(driver, merchant)
-                if link is not None:
-                    result[boid] = link
-                    print(boid, "===>", link)
+            elif dobj["type"] == "hub" and dobj["method"] == "queryparam":
+                q = dobj["querykey"]
+                link = f"{url}?{q}={userid}"
+            if link is not None:
+                result[boid] = link
+                print(boid, "===>", link)
 
-            if len(result):
-                writeLocalJsonFile(
-                    result,
-                    os.path.join(src_dir, output_dir, merchant, f"{flabel}.json"),
-                    verbose=True,
-                )
+        if len(result):
+            writeLocalJsonFile(
+                result,
+                os.path.join(src_dir, output_dir, merchant, f"{flabel}.json"),
+                verbose=True,
+            )
+        closeSelenDriver(driver=driver)
     else:
         print("nothing to process here")
 
@@ -90,15 +135,20 @@ if __name__ == "__main__":
     )
 
     target = input(
-        "Which platform are we processing today? [1] - Amazon [2] - Aliexpress \n"
+        "Which platform are we processing today? [1] Amazon [2] Aliexpress [3] Gumroad \n"
     )
     if target == "1":
         merch = "amazon"
+    elif target == "3":
+        merch = "gumroad"
+        print(
+            "for gumroad products, you only need to attach a pair of query parameter ?a=<USERID>. you can manually set your userid in the .env file."
+        )
     elif target == "2":
         merch = "aliexpress"
         c = (
             input(
-                f"Aliexpress is strict about the use of automated scripts. You will need to log in yourself every time. Continue? (y/n) \n"
+                f"Aliexpress is strict about the use of automated scripts. You will need to log in, even with cookies. Continue? (y/n) \n"
             )
             .strip()
             .lower()
@@ -131,4 +181,4 @@ if __name__ == "__main__":
                     forceLogin=force_login,
                 )
             except Exception as e:
-                print(e)
+                print(e, format_exc())
